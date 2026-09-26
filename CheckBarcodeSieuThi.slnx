@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CheckBarcodeSieuThi.csproj" />
+  <Project Path="tools/ReaderSimulator/ReaderSimulator.csproj" />
+</Solution>

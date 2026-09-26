@@ -1,0 +1,146 @@
+﻿<Window x:Class="CheckBarcodeSieuThi.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:CheckBarcodeSieuThi.ViewModels"
+        xmlns:views="clr-namespace:CheckBarcodeSieuThi.Views"
+        xmlns:svc="clr-namespace:CheckBarcodeSieuThi.Services"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="Thanh toán siêu thị" Height="800" Width="1360"
+        MinHeight="640" MinWidth="1100"
+        WindowStartupLocation="CenterScreen" WindowState="Maximized"
+        Background="{StaticResource Bg}" Foreground="{StaticResource Ink}"
+        FontFamily="Segoe UI" FontSize="14"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:PosViewModel}">
+            <views:PosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ProductsViewModel}">
+            <views:ProductsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InvoicesViewModel}">
+            <views:InvoicesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="216" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ================= MENU TRÁI ================= -->
+        <Border Background="{StaticResource Sidebar}">
+            <DockPanel Margin="16,20,16,16">
+                <!-- Logo -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,0,0,28">
+                    <Border Width="40" Height="40" CornerRadius="10" Background="{StaticResource Primary}">
+                        <TextBlock Text="&#xE7BF;" Style="{StaticResource Text.Icon}" FontSize="20" Foreground="White" />
+                    </Border>
+                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Settings.SavedStoreName}" Foreground="White" FontWeight="SemiBold"
+                                   FontSize="14.5" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxWidth="124" MaxHeight="40" />
+                        <TextBlock Text="Phần mềm bán hàng" Foreground="{StaticResource SidebarInk}" FontSize="12" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Trạng thái đầu đọc -->
+                <Border DockPanel.Dock="Bottom" Background="{StaticResource SidebarHover}" CornerRadius="10" Padding="12,10"
+                        Cursor="Hand" ToolTip="Mở cài đặt kết nối đầu đọc">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenSettingsCommand}" />
+                    </Border.InputBindings>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE839;" Style="{StaticResource Text.Icon}" FontSize="14"
+                                       Foreground="{StaticResource SidebarInk}" Margin="0,0,8,0" />
+                            <TextBlock Text="Đầu đọc mã vạch" Foreground="{StaticResource SidebarInk}" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Ellipse Width="9" Height="9" Margin="1,0,8,0" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#64748B" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.ReaderStatus}" Value="{x:Static svc:ReaderStatus.Connecting}">
+                                                <Setter Property="Fill" Value="#F59E0B" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Settings.ReaderStatus}" Value="{x:Static svc:ReaderStatus.Listening}">
+                                                <Setter Property="Fill" Value="#60A5FA" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Settings.ReaderStatus}" Value="{x:Static svc:ReaderStatus.Connected}">
+                                                <Setter Property="Fill" Value="#34D399" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Settings.ReaderStatus}" Value="{x:Static svc:ReaderStatus.Error}">
+                                                <Setter Property="Fill" Value="#F87171" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding Settings.ReaderShortStatus}" Foreground="White" FontSize="13"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Menu -->
+                <ListBox Style="{StaticResource NavList}" ItemsSource="{Binding Pages}" SelectedItem="{Binding CurrentPage}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Text.Icon}" FontSize="17" Width="22" />
+                                <TextBlock Text="{Binding Title}" Margin="12,0,0,0" FontSize="14.5" FontWeight="Medium"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- ================= NỘI DUNG ================= -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Thanh tiêu đề -->
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                    Padding="28,14">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="{StaticResource SuccessSoft}" CornerRadius="16" Padding="12,6" Margin="0,0,16,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE9D2;" Style="{StaticResource Text.Icon}" FontSize="13"
+                                           Foreground="{StaticResource Success}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding TodaySummary}" Foreground="{StaticResource Success}"
+                                           FontWeight="SemiBold" FontSize="13" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Now, StringFormat=HH:mm:ss}" FontSize="16" FontWeight="SemiBold"
+                                       HorizontalAlignment="Right" />
+                            <TextBlock Text="{Binding Now, StringFormat=dddd\, dd/MM/yyyy}" Style="{StaticResource Text.Muted}"
+                                       HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CurrentPage.Title}" Style="{StaticResource Text.PageTitle}" />
+                        <TextBlock Text="{Binding CurrentPage.Subtitle}" Style="{StaticResource Text.Muted}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Focusable="False" Margin="24" />
+        </Grid>
+    </Grid>
+</Window>
