@@ -32,10 +32,27 @@ namespace CheckBarcodeSieuThi.ViewModels
         public ICommand ClearLogCommand { get; }
         public ICommand SaveStoreCommand { get; }
 
+        /// <summary>Cấu hình tham số bên trong đầu đọc (chế độ quét, loại mã, đèn...).</summary>
+        public ReaderConfigViewModel DeviceConfig { get; }
+
         public SettingsViewModel(AppSettings settings, BarcodeReaderService reader)
         {
             _settings = settings;
             _reader = reader;
+
+            DeviceConfig = new ReaderConfigViewModel(reader, AddLog);
+            DeviceConfig.ReaderSelected += found =>
+            {
+                if (IsReaderRunning)
+                {
+                    AddLog($"Đang kết nối nên chưa đổi địa chỉ. Ngắt kết nối rồi chọn lại {found.Ip}:{found.Port} nếu muốn dùng đầu đọc này.");
+                    return;
+                }
+                Mode = ReaderConnectionMode.Client;
+                ReaderIp = found.Ip;
+                PortText = found.Port.ToString();
+                AddLog($"Đã điền IP {found.Ip}, cổng {found.Port} ({found.Model}, SN {found.SerialNumber}). Bấm Kết nối.");
+            };
 
             _mode = settings.Mode;
             _readerIp = settings.ReaderIp;
@@ -55,7 +72,14 @@ namespace CheckBarcodeSieuThi.ViewModels
             ClearLogCommand = new RelayCommand(Logs.Clear);
             SaveStoreCommand = new RelayCommand(SaveStore);
 
-            _reader.StatusChanged += (_, e) => OnUi(() => { ReaderStatus = e.Status; StatusText = e.Message; });
+            _reader.StatusChanged += (_, e) => OnUi(() =>
+            {
+                ReaderStatus = e.Status;
+                StatusText = e.Message;
+                // Vừa kết nối xong: tự đọc thông tin và cấu hình của đầu đọc
+                if (e.Status == ReaderStatus.Connected)
+                    _ = DeviceConfig.ReadOnConnectedAsync();
+            });
             _reader.Log += (_, msg) => OnUi(() => AddLog(msg));
         }
 
@@ -251,6 +275,22 @@ namespace CheckBarcodeSieuThi.ViewModels
         {
             _settings.TriggerCommand = TriggerText;
             TrySave();
+        }
+
+        /// <summary>
+        /// Thoát phần mềm thì đầu đọc phải ngừng đọc (nhất là chế độ đọc liên tục), không thì nó cứ bíp
+        /// mà không ai nhận mã. Chạy trên thread nền và chờ tối đa vài giây để không treo lúc đóng cửa sổ.
+        /// </summary>
+        public void PauseReaderOnExit()
+        {
+            try
+            {
+                Task.Run(DeviceConfig.PauseForExitAsync).Wait(TimeSpan.FromSeconds(2.5));
+            }
+            catch (Exception)
+            {
+                // Đang thoát, không còn gì để báo
+            }
         }
 
         private bool TrySave()

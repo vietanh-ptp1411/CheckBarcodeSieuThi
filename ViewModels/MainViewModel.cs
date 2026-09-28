@@ -104,6 +104,7 @@ namespace CheckBarcodeSieuThi.ViewModels
 
         /// <summary>
         /// Mã từ đầu đọc: đang ở trang Sản phẩm thì dùng cho form sản phẩm,
+        /// đang ở trang Cài đặt thì chỉ ghi log (để còn chỉnh được đầu đọc khi nó đọc liên tục),
         /// còn lại coi là bán hàng (tự chuyển sang trang Bán hàng).
         /// </summary>
         private void RouteBarcode(string code, string source)
@@ -115,6 +116,9 @@ namespace CheckBarcodeSieuThi.ViewModels
                 Products.HandleScannedBarcode(code);
                 return;
             }
+
+            if (CurrentPage == Settings)
+                return;
 
             CurrentPage = Pos;
             Pos.AddBarcode(code);
@@ -130,6 +134,7 @@ namespace CheckBarcodeSieuThi.ViewModels
         {
             _clock.Stop();
             Settings.SaveOnExit();
+            Settings.PauseReaderOnExit();
             _reader.Dispose();
         }
     }

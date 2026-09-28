@@ -60,11 +60,27 @@ namespace CheckBarcodeSieuThi.Services
         private string? _lastCode;
         private long _lastCodeTick;
 
+        // Lệnh cấu hình đang chờ đầu đọc trả lời (chỉ một lệnh tại một thời điểm)
+        private readonly SemaphoreSlim _cmdLock = new(1, 1);
+        private volatile PendingCommand? _pending;
+
+        private sealed class PendingCommand(string expectCode)
+        {
+            public string ExpectCode { get; } = expectCode.ToUpperInvariant();
+            public TaskCompletionSource<string> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
         public ReaderStatus Status { get; private set; } = ReaderStatus.Disconnected;
         public bool IsRunning => _cts != null;
 
         /// <summary>Bỏ qua mã giống mã trước đó nếu đến trong khoảng này (ms). 0 = tắt.</summary>
         public int DuplicateIgnoreMs { get; set; }
+
+        /// <summary>
+        /// Chuỗi đầu đọc gửi khi không đọc được mã (vd "NR", cấu hình "Read fail prompt").
+        /// Chuỗi này không phải mã vạch nên bị bỏ qua.
+        /// </summary>
+        public string? NoReadText { get; set; }
 
         public int ConnectedCount
         {
@@ -104,9 +120,11 @@ namespace CheckBarcodeSieuThi.Services
         }
 
         /// <summary>Gửi chuỗi xuống tất cả đầu đọc đang kết nối (vd: lệnh trigger). Trả về số đầu đọc đã gửi được.</summary>
-        public async Task<int> SendAsync(string text)
+        public Task<int> SendAsync(string text) => SendBytesAsync(Encoding.ASCII.GetBytes(text));
+
+        /// <summary>Gửi dữ liệu thô xuống tất cả đầu đọc đang kết nối. Trả về số đầu đọc đã gửi được.</summary>
+        public async Task<int> SendBytesAsync(byte[] bytes)
         {
-            var bytes = Encoding.ASCII.GetBytes(text);
             TcpClient[] targets;
             lock (_clientsLock) targets = [.. _clients];
 
@@ -132,6 +150,48 @@ namespace CheckBarcodeSieuThi.Services
                 _sendLock.Release();
             }
             return sent;
+        }
+
+        /// <summary>
+        /// Gửi một khung lệnh cấu hình (xem <see cref="ShiYinProtocol"/>) tới đầu đọc đầu tiên đang kết nối
+        /// và chờ chuỗi trả lời bắt đầu bằng <paramref name="expectCode"/> (6 ký tự hex của lệnh đầu tiên).
+        /// Trả lời được tách khỏi luồng mã vạch nên không bị coi là mã quét.
+        /// </summary>
+        public async Task<string> SendCommandAsync(byte[] frame, string expectCode, int timeoutMs = 3000, CancellationToken ct = default)
+        {
+            TcpClient? target;
+            lock (_clientsLock) target = _clients.FirstOrDefault();
+            if (target == null)
+                throw new InvalidOperationException("Chưa có đầu đọc nào đang kết nối.");
+
+            await _cmdLock.WaitAsync(ct);
+            var request = new PendingCommand(expectCode);
+            try
+            {
+                _pending = request;
+                await _sendLock.WaitAsync(ct);
+                try { await target.GetStream().WriteAsync(frame, ct); }
+                finally { _sendLock.Release(); }
+
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(timeoutMs);
+                using (timeoutCts.Token.Register(() => request.Completion.TrySetCanceled()))
+                {
+                    try
+                    {
+                        return await request.Completion.Task;
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        throw new TimeoutException($"Đầu đọc không trả lời lệnh {expectCode} sau {timeoutMs / 1000.0:0.#} giây.");
+                    }
+                }
+            }
+            finally
+            {
+                _pending = null;
+                _cmdLock.Release();
+            }
         }
 
         /// <summary>Chuyển "\r", "\n", "\t" gõ trong ô cấu hình thành ký tự thật.</summary>
@@ -267,13 +327,15 @@ namespace CheckBarcodeSieuThi.Services
             {
                 readTask ??= stream.ReadAsync(buffer.AsMemory(), ct).AsTask();
 
-                // Còn dữ liệu chưa có ký tự kết thúc: chờ thêm một chút, nếu im lặng thì chốt thành 1 mã
+                // Còn dữ liệu chưa có ký tự kết thúc: chờ thêm một chút, nếu im lặng thì chốt thành 1 mã.
+                // Đang chờ trả lời lệnh cấu hình thì không chốt vội (trả lời có thể đến thành nhiều gói).
                 if (pending.Count > 0)
                 {
                     var finished = await Task.WhenAny(readTask, Task.Delay(FrameIdleTimeout, CancellationToken.None));
                     if (finished != readTask)
                     {
-                        FlushFrame(pending, source);
+                        if (_pending == null)
+                            FlushFrame(pending, source);
                         continue;
                     }
                 }
@@ -289,13 +351,20 @@ namespace CheckBarcodeSieuThi.Services
                     if (b is 0x0D or 0x0A or 0x02 or 0x03 or 0x00)
                     {
                         FlushFrame(pending, source);
+                        continue;
                     }
-                    else
+
+                    pending.Add(b);
+
+                    // Trả lời lệnh cấu hình kết thúc bằng <ACK|NAK|ENQ> rồi "." (hoặc "!" với lệnh ghi tạm)
+                    if (b is (byte)'.' or (byte)'!' && pending.Count >= 2 && ShiYinProtocol.IsStatusByte(pending[^2]))
                     {
-                        pending.Add(b);
-                        if (pending.Count >= MaxFrameLength)
-                            FlushFrame(pending, source);
+                        HandleReply(pending, source);
+                        continue;
                     }
+
+                    if (pending.Count >= MaxFrameLength)
+                        FlushFrame(pending, source);
                 }
             }
 
@@ -308,9 +377,26 @@ namespace CheckBarcodeSieuThi.Services
         {
             if (pending.Count == 0) return;
 
+            if (ShiYinProtocol.LooksLikeReply(CollectionsMarshal.AsSpan(pending)))
+            {
+                HandleReply(pending, source);
+                return;
+            }
+
             var code = Encoding.UTF8.GetString(CollectionsMarshal.AsSpan(pending)).Trim();
             pending.Clear();
+            EmitBarcode(code, source);
+        }
+
+        private void EmitBarcode(string code, string source)
+        {
             if (code.Length == 0) return;
+
+            if (!string.IsNullOrEmpty(NoReadText) && code == NoReadText)
+            {
+                RaiseLog("Đầu đọc báo không đọc được mã");
+                return;
+            }
 
             if (IsDuplicate(code))
             {
@@ -319,6 +405,39 @@ namespace CheckBarcodeSieuThi.Services
             }
 
             BarcodeScanned?.Invoke(this, new BarcodeScannedEventArgs(code, source));
+        }
+
+        /// <summary>
+        /// Chuỗi trong <paramref name="pending"/> là trả lời lệnh cấu hình: giao cho lệnh đang chờ (nếu khớp mã),
+        /// phần mã vạch (nếu có) dính trước trả lời vẫn được tách ra.
+        /// </summary>
+        private void HandleReply(List<byte> pending, string source)
+        {
+            var text = Encoding.Latin1.GetString(CollectionsMarshal.AsSpan(pending));
+            pending.Clear();
+
+            var request = _pending;
+            if (request != null)
+            {
+                int idx = text.IndexOf(request.ExpectCode, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    if (idx > 0)
+                        EmitBarcode(text[..idx].Trim(), source);
+                    request.Completion.TrySetResult(text[idx..]);
+                    return;
+                }
+            }
+
+            RaiseLog($"Bỏ qua phản hồi cấu hình không mong đợi: {Printable(text)}");
+        }
+
+        private static string Printable(string s)
+        {
+            var sb = new StringBuilder(s.Length);
+            foreach (var c in s)
+                sb.Append(c < ' ' ? $"<{(int)c:X2}>" : c);
+            return sb.Length > 200 ? sb.ToString(0, 200) + "…" : sb.ToString();
         }
 
         private bool IsDuplicate(string code)
@@ -409,6 +528,7 @@ namespace CheckBarcodeSieuThi.Services
             CloseAllClients();
             _cts?.Dispose();
             _sendLock.Dispose();
+            _cmdLock.Dispose();
         }
     }
 }

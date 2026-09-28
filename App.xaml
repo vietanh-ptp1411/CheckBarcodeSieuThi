@@ -12,6 +12,7 @@
 
             <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
             <conv:BoolToVisibilityConverter x:Key="InverseBoolToVis" Invert="True" />
+            <conv:CountToVisibilityConverter x:Key="CountToVis" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

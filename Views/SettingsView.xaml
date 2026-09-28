@@ -9,196 +9,502 @@
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
              d:DesignHeight="760" d:DesignWidth="1100">
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="20" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+    <UserControl.Resources>
+        <!-- Tiêu đề nhóm nhỏ trong thẻ cấu hình đầu đọc -->
+        <Style x:Key="Text.Group" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Ink}" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+        <Style x:Key="Text.Field" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+            <Setter Property="Margin" Value="0,10,0,4" />
+        </Style>
+        <Style x:Key="Check.Row" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </UserControl.Resources>
 
-        <!-- ================= ĐẦU ĐỌC ================= -->
-        <Border Style="{StaticResource Card}">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Top">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                        <Border Width="36" Height="36" CornerRadius="9" Background="{StaticResource PrimarySoft}" Margin="0,0,12,0">
-                            <TextBlock Text="&#xE839;" Style="{StaticResource Text.Icon}" Foreground="{StaticResource Primary}" />
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <StackPanel Margin="0,0,6,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- ================= KẾT NỐI ĐẦU ĐỌC ================= -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Border Width="36" Height="36" CornerRadius="9" Background="{StaticResource PrimarySoft}" Margin="0,0,12,0">
+                                <TextBlock Text="&#xE839;" Style="{StaticResource Text.Icon}" Foreground="{StaticResource Primary}" />
+                            </Border>
+                            <TextBlock Text="Kết nối đầu đọc (Ethernet TCP/IP)" Style="{StaticResource Text.Section}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,18"
+                                   Text="Đầu đọc Shijie ICW gửi mã dạng text qua TCP. Chưa biết IP thì bấm Tìm đầu đọc trong mạng ở thẻ Cấu hình đầu đọc bên dưới." />
+
+                        <TextBlock Text="Chế độ kết nối" Style="{StaticResource Text.Label}" />
+                        <ComboBox ItemsSource="{Binding ModeOptions}" SelectedValuePath="Key" DisplayMemberPath="Value"
+                                  SelectedValue="{Binding Mode}" IsEnabled="{Binding CanEditConnection}" />
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="130" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Visibility="{Binding IsClientMode, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="IP đầu đọc" Style="{StaticResource Text.Label}" />
+                                <TextBox Text="{Binding ReaderIp, UpdateSourceTrigger=PropertyChanged}" Tag="192.168.1.100"
+                                         IsEnabled="{Binding CanEditConnection}" />
+                            </StackPanel>
+                            <StackPanel Visibility="{Binding IsClientMode, Converter={StaticResource InverseBoolToVis}}">
+                                <TextBlock Text="IP của PC" Style="{StaticResource Text.Label}" />
+                                <TextBox Text="Lắng nghe trên mọi card mạng" IsEnabled="False" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Cổng (port)" Style="{StaticResource Text.Label}" />
+                                <TextBox Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}" Tag="18204"
+                                         IsEnabled="{Binding CanEditConnection}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4"
+                                        ToolTip="Bỏ qua mã giống hệt đến liên tiếp trong khoảng này (đầu đọc gửi lặp). Đặt quá lớn sẽ bỏ sót khi quét nhanh 2 món giống nhau. 0 = tắt.">
+                                <TextBlock Text="Chống đọc lặp (ms)" Style="{StaticResource Text.Label}" />
+                                <TextBox Text="{Binding DuplicateText, UpdateSourceTrigger=PropertyChanged}" Tag="300">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDuplicateValid}" Value="False">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Danger}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Lệnh trigger dạng chữ (tùy chọn)" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding TriggerText, UpdateSourceTrigger=PropertyChanged}"
+                                     Tag="Ví dụ: TRIGGER — để trống nếu đọc liên tục hoặc dùng cảm biến" />
+                            <Button Grid.Column="1" Content="Gửi" Margin="10,0,0,0" Command="{Binding SendTriggerCommand}" />
+                        </Grid>
+
+                        <CheckBox Content="Tự kết nối khi mở phần mềm" IsChecked="{Binding AutoConnect}" Margin="0,16,0,0" />
+
+                        <!-- Trạng thái + nút kết nối -->
+                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                CornerRadius="10" Padding="14,12" Margin="0,18,0,0">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectCommand}"
+                                        MinWidth="130" Margin="12,0,0,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Btn.Primary}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsReaderRunning}" Value="True">
+                                                    <Setter Property="Background" Value="#475569" />
+                                                    <Setter Property="BorderBrush" Value="#475569" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Ellipse Width="10" Height="10" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#94A3B8" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Connecting}">
+                                                    <Setter Property="Fill" Value="#F59E0B" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Listening}">
+                                                    <Setter Property="Fill" Value="#3B82F6" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Connected}">
+                                                    <Setter Property="Fill" Value="#16A34A" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Error}">
+                                                    <Setter Property="Fill" Value="#DC2626" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </DockPanel>
                         </Border>
-                        <TextBlock Text="Đầu đọc mã vạch (Ethernet TCP/IP)" Style="{StaticResource Text.Section}" VerticalAlignment="Center" />
+
+                        <DockPanel Margin="0,20,0,8">
+                            <Button DockPanel.Dock="Right" Content="Xóa log" Style="{StaticResource Btn.Ghost}" Padding="10,4"
+                                    FontSize="12.5" Command="{Binding ClearLogCommand}" />
+                            <TextBlock Text="Nhật ký kết nối" Style="{StaticResource Text.Label}" Margin="0" VerticalAlignment="Center" />
+                        </DockPanel>
+
+                        <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                CornerRadius="10" Padding="4" Height="190">
+                            <ListBox ItemsSource="{Binding Logs}" Background="Transparent" BorderThickness="0"
+                                     FontFamily="Consolas" FontSize="12.5" Foreground="{StaticResource InkSoft}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,3" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <ContentPresenter Margin="{TemplateBinding Padding}" />
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
                     </StackPanel>
-                    <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,18"
-                               Text="Đầu đọc ICW VNG gửi mã dạng text (no protocol). Cấu hình IP, cổng và ký tự kết thúc CR/LF trong phần mềm của đầu đọc." />
+                </Border>
 
-                    <TextBlock Text="Chế độ kết nối" Style="{StaticResource Text.Label}" />
-                    <ComboBox ItemsSource="{Binding ModeOptions}" SelectedValuePath="Key" DisplayMemberPath="Value"
-                              SelectedValue="{Binding Mode}" IsEnabled="{Binding CanEditConnection}" />
-
-                    <Grid Margin="0,14,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="130" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Visibility="{Binding IsClientMode, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="IP đầu đọc" Style="{StaticResource Text.Label}" />
-                            <TextBox Text="{Binding ReaderIp, UpdateSourceTrigger=PropertyChanged}" Tag="192.168.1.100"
-                                     IsEnabled="{Binding CanEditConnection}" />
+                <!-- ================= CỬA HÀNG ================= -->
+                <Border Grid.Column="2" Style="{StaticResource Card}" VerticalAlignment="Top">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Border Width="36" Height="36" CornerRadius="9" Background="{StaticResource SuccessSoft}" Margin="0,0,12,0">
+                                <TextBlock Text="&#xE719;" Style="{StaticResource Text.Icon}" Foreground="{StaticResource Success}" />
+                            </Border>
+                            <TextBlock Text="Thông tin cửa hàng" Style="{StaticResource Text.Section}" VerticalAlignment="Center" />
                         </StackPanel>
-                        <StackPanel Visibility="{Binding IsClientMode, Converter={StaticResource InverseBoolToVis}}">
-                            <TextBlock Text="IP của PC" Style="{StaticResource Text.Label}" />
-                            <TextBox Text="Lắng nghe trên mọi card mạng" IsEnabled="False" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Cổng (port)" Style="{StaticResource Text.Label}" />
-                            <TextBox Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}" Tag="2001"
-                                     IsEnabled="{Binding CanEditConnection}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="4"
-                                    ToolTip="Bỏ qua mã giống hệt đến liên tiếp trong khoảng này (đầu đọc gửi lặp). Đặt quá lớn sẽ bỏ sót khi quét nhanh 2 món giống nhau. 0 = tắt.">
-                            <TextBlock Text="Chống đọc lặp (ms)" Style="{StaticResource Text.Label}" />
-                            <TextBox Text="{Binding DuplicateText, UpdateSourceTrigger=PropertyChanged}" Tag="300">
-                                <TextBox.Style>
-                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDuplicateValid}" Value="False">
-                                                <Setter Property="BorderBrush" Value="{StaticResource Danger}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBox.Style>
-                            </TextBox>
-                        </StackPanel>
-                    </Grid>
+                        <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,18"
+                                   Text="Hiển thị ở đầu và cuối mỗi hóa đơn in ra." />
 
-                    <TextBlock Text="Lệnh trigger mềm (tùy chọn)" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding TriggerText, UpdateSourceTrigger=PropertyChanged}"
-                                 Tag="Ví dụ: T\r\n — để trống nếu dùng cảm biến / đọc liên tục" />
-                        <Button Grid.Column="1" Content="Gửi trigger" Margin="10,0,0,0" Command="{Binding SendTriggerCommand}" />
-                    </Grid>
+                        <TextBlock Text="Tên cửa hàng" Style="{StaticResource Text.Label}" />
+                        <TextBox Text="{Binding StoreName, UpdateSourceTrigger=PropertyChanged}" Tag="Ví dụ: SIÊU THỊ MINI ABC" />
 
-                    <CheckBox Content="Tự kết nối khi mở phần mềm" IsChecked="{Binding AutoConnect}" Margin="0,16,0,0" />
+                        <TextBlock Text="Địa chỉ" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
+                        <TextBox Text="{Binding StoreAddress, UpdateSourceTrigger=PropertyChanged}" Tag="Số nhà, đường, phường, tỉnh/thành" />
 
-                    <!-- Trạng thái + nút kết nối -->
-                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="10" Padding="14,12" Margin="0,18,0,0">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectCommand}"
-                                    MinWidth="130" Margin="12,0,0,0">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource Btn.Primary}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsReaderRunning}" Value="True">
-                                                <Setter Property="Background" Value="#475569" />
-                                                <Setter Property="BorderBrush" Value="#475569" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
+                        <TextBlock Text="Số điện thoại" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
+                        <TextBox Text="{Binding StorePhone, UpdateSourceTrigger=PropertyChanged}" Tag="0900 000 000" />
+
+                        <TextBlock Text="Lời chào cuối hóa đơn" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
+                        <TextBox Text="{Binding ReceiptFooter, UpdateSourceTrigger=PropertyChanged}" Tag="Cảm ơn quý khách!" />
+
+                        <CheckBox Content="In hóa đơn ra máy in mặc định ngay sau khi thanh toán" IsChecked="{Binding AutoPrint}"
+                                  Margin="0,18,0,0" />
+
+                        <DockPanel Margin="0,22,0,0">
+                            <Button DockPanel.Dock="Left" Style="{StaticResource Btn.Primary}" Command="{Binding SaveStoreCommand}" MinWidth="130">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74E;" Style="{StaticResource Text.Icon}" FontSize="13" Margin="0,0,8,0" />
+                                    <TextBlock Text="Lưu thông tin" />
+                                </StackPanel>
                             </Button>
-                            <Ellipse Width="10" Height="10" Margin="0,0,10,0" VerticalAlignment="Center">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#94A3B8" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Connecting}">
-                                                <Setter Property="Fill" Value="#F59E0B" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Listening}">
-                                                <Setter Property="Fill" Value="#3B82F6" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Connected}">
-                                                <Setter Property="Fill" Value="#16A34A" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding ReaderStatus}" Value="{x:Static svc:ReaderStatus.Error}">
-                                                <Setter Property="Fill" Value="#DC2626" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding StoreMessage}" Foreground="{StaticResource Success}" VerticalAlignment="Center"
+                                       Margin="14,0,0,0" TextWrapping="Wrap" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ================= CẤU HÌNH BÊN TRONG ĐẦU ĐỌC ================= -->
+            <Border Style="{StaticResource Card}" Margin="0,20,0,0" DataContext="{Binding DeviceConfig}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,4">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                            <Button Content="Tìm đầu đọc trong mạng" Style="{StaticResource Btn.Soft}" Command="{Binding DiscoverCommand}" />
+                            <Button Content="Đọc từ đầu đọc" Style="{StaticResource Btn.Soft}" Margin="8,0,0,0" Command="{Binding ReadCommand}" />
+                            <Button Content="Cấu hình mẫu siêu thị" Style="{StaticResource Btn.Soft}" Margin="8,0,0,0" Command="{Binding SupermarketPresetCommand}"
+                                    ToolTip="Điền sẵn: đọc liên tục, bật các loại mã hàng hóa thông dụng, kết thúc CR+LF. Sau đó bấm Lưu vào đầu đọc." />
+                            <Button Style="{StaticResource Btn.Primary}" Margin="8,0,0,0" Command="{Binding SaveCommand}" MinWidth="150">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74E;" Style="{StaticResource Text.Icon}" FontSize="13" Margin="0,0,8,0" />
+                                    <TextBlock Text="Lưu vào đầu đọc" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="36" Height="36" CornerRadius="9" Background="{StaticResource WarningSoft}" Margin="0,0,12,0">
+                                <TextBlock Text="&#xE713;" Style="{StaticResource Text.Icon}" Foreground="{StaticResource Warning}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Cấu hình bên trong đầu đọc" Style="{StaticResource Text.Section}" />
+                                <TextBlock Text="{Binding DeviceSummary}" Style="{StaticResource Text.Muted}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="Các tham số này nằm trong đầu đọc (giống phần mềm ShiJieConfig của hãng) và được ghi qua chính kết nối đang dùng để nhận mã. Cần kết nối trước, bấm Đọc từ đầu đọc, sửa rồi Lưu vào đầu đọc. Giá trị lưu xong vẫn giữ khi tắt nguồn." />
+
+                    <!-- Trạng thái -->
+                    <Border BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,14,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{StaticResource SurfaceAlt}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusIsError}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource DangerSoft}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource DangerLine}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <DockPanel>
+                            <ProgressBar DockPanel.Dock="Right" Width="90" Height="6" IsIndeterminate="True" Margin="12,0,0,0" VerticalAlignment="Center"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </DockPanel>
                     </Border>
 
-                    <DockPanel Margin="0,20,0,8">
-                        <Button DockPanel.Dock="Right" Content="Xóa log" Style="{StaticResource Btn.Ghost}" Padding="10,4"
-                                FontSize="12.5" Command="{Binding ClearLogCommand}" />
-                        <TextBlock Text="Nhật ký kết nối" Style="{StaticResource Text.Label}" Margin="0" VerticalAlignment="Center" />
+                    <!-- Danh sách đầu đọc tìm thấy -->
+                    <StackPanel Visibility="{Binding Found.Count, Converter={StaticResource CountToVis}}" Margin="0,12,0,0">
+                        <TextBlock Text="Đầu đọc tìm thấy trong mạng (bấm để dùng IP và cổng)" Style="{StaticResource Text.Label}" />
+                        <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Found}" SelectedItem="{Binding SelectedFound}" MaxHeight="110">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Model}" FontWeight="SemiBold" MinWidth="90" />
+                                        <TextBlock Text="{Binding Ip}" Margin="12,0,0,0" MinWidth="120" />
+                                        <TextBlock Text="{Binding Port, StringFormat=cổng {0}}" Margin="12,0,0,0" MinWidth="90" />
+                                        <TextBlock Text="{Binding SerialNumber, StringFormat=SN {0}}" Margin="12,0,0,0" Foreground="{StaticResource InkSoft}" />
+                                        <TextBlock Text="{Binding Mac}" Margin="12,0,0,0" Foreground="{StaticResource InkMuted}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+
+                    <!-- Các nhóm tham số -->
+                    <Grid Margin="0,18,0,0" IsEnabled="{Binding HasConfig}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Cột 1: chế độ quét -->
+                        <StackPanel>
+                            <TextBlock Text="Chế độ quét" Style="{StaticResource Text.Group}" />
+                            <ComboBox ItemsSource="{Binding ScanModeOptions}" SelectedValuePath="Value" DisplayMemberPath="Label"
+                                      SelectedValue="{Binding ScanMode}" />
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel ToolTip="{Binding RereadDelayRange}">
+                                    <TextBlock Text="Chống đọc lặp trên đầu đọc (ms)" Style="{StaticResource Text.Field}" />
+                                    <TextBox Text="{Binding RereadDelayMs, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" ToolTip="{Binding DecodeTimeoutRange}">
+                                    <TextBlock Text="Giải mã tối đa (ms)" Style="{StaticResource Text.Field}" />
+                                    <TextBox Text="{Binding DecodeTimeoutMs, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel ToolTip="{Binding TriggerTimeoutRange}">
+                                    <TextBlock Text="Giữ đọc sau trigger (ms)" Style="{StaticResource Text.Field}" />
+                                    <TextBox Text="{Binding TriggerTimeoutMs, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" ToolTip="{Binding MultiCodeRange}">
+                                    <TextBlock Text="Số mã mỗi lần đọc" Style="{StaticResource Text.Field}" />
+                                    <TextBox Text="{Binding MultiCodeCount, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Lệnh trigger / dừng dạng chữ" Style="{StaticResource Text.Field}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding TriggerCommandText, UpdateSourceTrigger=PropertyChanged}" Tag="TRIGGER" />
+                                <TextBox Grid.Column="2" Text="{Binding ReleaseCommandText, UpdateSourceTrigger=PropertyChanged}" Tag="RELEASE" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="PC gửi chuỗi này qua TCP để kích / dừng đọc ở chế độ trigger. Hai nút dưới dùng lệnh giao thức nên không cần chuỗi." />
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Content="Bắt đầu đọc" Style="{StaticResource Btn.Soft}" Command="{Binding TriggerCommand}"
+                                        ToolTip="Chế độ trigger: kích đọc một lần. Chế độ liên tục: bật đọc lại sau khi đã Dừng." />
+                                <Button Content="Dừng đọc" Style="{StaticResource Btn.Ghost}" Margin="8,0,0,0" Command="{Binding ReleaseCommand}"
+                                        ToolTip="Dừng đọc ngay, kể cả đang đọc liên tục (tạm chuyển sang chế độ trigger tới khi bấm Bắt đầu đọc hoặc đầu đọc khởi động lại)." />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Text="Đọc liên tục: hàng nằm yên trước đầu đọc sẽ được gửi lại sau mỗi khoảng chống lặp, nên lấy hàng ra ngay sau khi nghe bíp. Đang ở trang Cài đặt thì mã nhận về chỉ ghi vào nhật ký, không thêm vào đơn." />
+                        </StackPanel>
+
+                        <!-- Cột 2: loại mã + dữ liệu gửi -->
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Loại mã được đọc" Style="{StaticResource Text.Group}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <CheckBox Content="EAN-13 / EAN-8" IsChecked="{Binding SymEan}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="UPC-A / UPC-E" IsChecked="{Binding SymUpc}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="Code 128" IsChecked="{Binding SymCode128}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="Code 39" IsChecked="{Binding SymCode39}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="Code 93" IsChecked="{Binding SymCode93}" Style="{StaticResource Check.Row}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <CheckBox Content="Interleaved 2 of 5" IsChecked="{Binding SymI25}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="QR Code" IsChecked="{Binding SymQr}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="Data Matrix" IsChecked="{Binding SymDataMatrix}" Style="{StaticResource Check.Row}" />
+                                    <CheckBox Content="PDF417" IsChecked="{Binding SymPdf417}" Style="{StaticResource Check.Row}" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Text="Mã hàng siêu thị là EAN-13 / EAN-8, hàng nhập Mỹ là UPC. Chỉ bật loại mã thật sự dùng: Code 39, Code 93, Interleaved 2 of 5 không có số kiểm tra nên dễ đọc nhầm từ chữ in trên bao bì." />
+
+                            <TextBlock Text="Dữ liệu gửi về PC" Style="{StaticResource Text.Group}" Margin="0,18,0,10" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Ký tự đầu (prefix)" Style="{StaticResource Text.Field}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding PrefixText, UpdateSourceTrigger=PropertyChanged}" Tag="Để trống" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Ký tự kết thúc (suffix)" Style="{StaticResource Text.Field}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding SuffixText, UpdateSourceTrigger=PropertyChanged}" Tag="[CR][LF]" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Viết [CR] [LF] [TAB] cho ký tự điều khiển, \xNN cho mã hex. Phần mềm này tách mã theo CR/LF nên suffix nên là [CR][LF]." />
+
+                            <CheckBox Content="Gửi chuỗi báo lỗi khi kích đọc mà không thấy mã" IsChecked="{Binding ReadFailPrompt}" Margin="0,12,0,0" />
+                            <Grid Margin="0,8,0,0" Visibility="{Binding ReadFailPrompt, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="140" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Chuỗi báo lỗi" Style="{StaticResource Text.Label}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1" Text="{Binding ReadFailText, UpdateSourceTrigger=PropertyChanged}" Tag="NR" />
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Cột 3: đèn, âm báo, camera -->
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Đèn chiếu, đèn ngắm, âm báo" Style="{StaticResource Text.Group}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <CheckBox Content="Bật đèn chiếu sáng" IsChecked="{Binding IllumOn}" Margin="0,6,0,0" />
+                                    <TextBlock Text="Độ sáng" Style="{StaticResource Text.Field}" />
+                                    <ComboBox ItemsSource="{Binding IllumLevelOptions}" SelectedValuePath="Value" DisplayMemberPath="Label"
+                                              SelectedValue="{Binding IllumLevel}" IsEnabled="{Binding IllumOn}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Đèn dùng" Style="{StaticResource Text.Field}" Margin="0,6,0,6" />
+                                    <UniformGrid Columns="2">
+                                        <CheckBox Content="Đèn 1" IsChecked="{Binding Light1}" Margin="0,0,0,6" />
+                                        <CheckBox Content="Đèn 2" IsChecked="{Binding Light2}" Margin="0,0,0,6" />
+                                        <CheckBox Content="Đèn 3" IsChecked="{Binding Light3}" />
+                                        <CheckBox Content="Đèn 4" IsChecked="{Binding Light4}" />
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Đèn ngắm (aimer)" Style="{StaticResource Text.Field}" />
+                                    <ComboBox ItemsSource="{Binding AimerOptions}" SelectedValuePath="Value" DisplayMemberPath="Label"
+                                              SelectedValue="{Binding Aimer}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" ToolTip="{Binding BeepRange}">
+                                    <TextBlock Text="Âm báo đọc được" Style="{StaticResource Text.Field}" />
+                                    <TextBox Text="{Binding BeepTone, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Camera" Style="{StaticResource Text.Group}" Margin="0,18,0,10" />
+                            <TextBlock Text="Khi đọc liên tục" Style="{StaticResource Text.Field}" Margin="0,0,0,4" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="50" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox ItemsSource="{Binding ExposureModeOptions}" SelectedValuePath="Value" DisplayMemberPath="Label"
+                                          SelectedValue="{Binding ConExposureMode}" />
+                                <TextBox Grid.Column="2" Text="{Binding ConExposure, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding ExposureRange, StringFormat=Phơi sáng {0}}" />
+                                <TextBox Grid.Column="4" Text="{Binding ConGain, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding GainRange, StringFormat=Khuếch đại (gain) {0}}" />
+                            </Grid>
+                            <TextBlock Text="Khi kích đọc (trigger)" Style="{StaticResource Text.Field}" Margin="0,10,0,4" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="50" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox ItemsSource="{Binding ExposureModeOptions}" SelectedValuePath="Value" DisplayMemberPath="Label"
+                                          SelectedValue="{Binding TriExposureMode}" />
+                                <TextBox Grid.Column="2" Text="{Binding TriExposure, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding ExposureRange, StringFormat=Phơi sáng {0}}" />
+                                <TextBox Grid.Column="4" Text="{Binding TriGain, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding GainRange, StringFormat=Khuếch đại (gain) {0}}" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Chế độ phơi sáng · thời gian phơi sáng · khuếch đại. Ảnh tối thì tăng phơi sáng hoặc gain; ảnh nhòe khi hàng di chuyển thì giảm phơi sáng." />
+                            <Grid Margin="0,10,0,0" ToolTip="{Binding FocusRange}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Lấy nét (focus)" Style="{StaticResource Text.Field}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding Focus, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <DockPanel Margin="0,22,0,0">
+                        <Button DockPanel.Dock="Right" Content="Khôi phục mặc định nhà sản xuất" Style="{StaticResource Btn.DangerOutline}"
+                                Command="{Binding RestoreFactoryCommand}" />
+                        <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,16,0"
+                                   Text="Lưu chỉ ghi những tham số đã thay đổi so với lúc đọc. Địa chỉ IP, cổng của đầu đọc không đổi bằng công cụ này." />
                     </DockPanel>
                 </StackPanel>
-
-                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                        CornerRadius="10" Padding="4">
-                    <ListBox ItemsSource="{Binding Logs}" Background="Transparent" BorderThickness="0"
-                             FontFamily="Consolas" FontSize="12.5" Foreground="{StaticResource InkSoft}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Padding" Value="8,3" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <ContentPresenter Margin="{TemplateBinding Padding}" />
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Border>
-            </DockPanel>
-        </Border>
-
-        <!-- ================= CỬA HÀNG ================= -->
-        <Border Grid.Column="2" Style="{StaticResource Card}" VerticalAlignment="Top">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                    <Border Width="36" Height="36" CornerRadius="9" Background="{StaticResource SuccessSoft}" Margin="0,0,12,0">
-                        <TextBlock Text="&#xE719;" Style="{StaticResource Text.Icon}" Foreground="{StaticResource Success}" />
-                    </Border>
-                    <TextBlock Text="Thông tin cửa hàng" Style="{StaticResource Text.Section}" VerticalAlignment="Center" />
-                </StackPanel>
-                <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,18"
-                           Text="Hiển thị ở đầu và cuối mỗi hóa đơn in ra." />
-
-                <TextBlock Text="Tên cửa hàng" Style="{StaticResource Text.Label}" />
-                <TextBox Text="{Binding StoreName, UpdateSourceTrigger=PropertyChanged}" Tag="Ví dụ: SIÊU THỊ MINI ABC" />
-
-                <TextBlock Text="Địa chỉ" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
-                <TextBox Text="{Binding StoreAddress, UpdateSourceTrigger=PropertyChanged}" Tag="Số nhà, đường, phường, tỉnh/thành" />
-
-                <TextBlock Text="Số điện thoại" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
-                <TextBox Text="{Binding StorePhone, UpdateSourceTrigger=PropertyChanged}" Tag="0900 000 000" />
-
-                <TextBlock Text="Lời chào cuối hóa đơn" Style="{StaticResource Text.Label}" Margin="0,14,0,6" />
-                <TextBox Text="{Binding ReceiptFooter, UpdateSourceTrigger=PropertyChanged}" Tag="Cảm ơn quý khách!" />
-
-                <CheckBox Content="In hóa đơn ra máy in mặc định ngay sau khi thanh toán" IsChecked="{Binding AutoPrint}"
-                          Margin="0,18,0,0" />
-
-                <DockPanel Margin="0,22,0,0">
-                    <Button DockPanel.Dock="Left" Style="{StaticResource Btn.Primary}" Command="{Binding SaveStoreCommand}" MinWidth="130">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE74E;" Style="{StaticResource Text.Icon}" FontSize="13" Margin="0,0,8,0" />
-                            <TextBlock Text="Lưu thông tin" />
-                        </StackPanel>
-                    </Button>
-                    <TextBlock Text="{Binding StoreMessage}" Foreground="{StaticResource Success}" VerticalAlignment="Center"
-                               Margin="14,0,0,0" TextWrapping="Wrap" />
-                </DockPanel>
-            </StackPanel>
-        </Border>
-    </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>
